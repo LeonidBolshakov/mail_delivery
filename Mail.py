@@ -11,17 +11,26 @@ from loguru import logger
 import constant as c
 
 
-class Mail:
-    def __init__(self):
-        self.count_mails = 0
-        self.count_errors = 0
-
+class CreateMails:
     @staticmethod
     def create_message_body(self, msg, content_: str, list_attachments: [str]):
         msg.attach(MIMEText(content_, 'plain'))
 
         for path in list_attachments:
             self.attach_file(msg, path)
+
+    def create(self, from_, list_to, subject, content_, list_attachments):
+        msgs = []
+        for to in list_to:
+            msg = MIMEMultipart()
+            msg['Subject'] = subject
+            msg['To'] = to
+            msg['From'] = from_
+
+            self.create_message_body(self, msg, content_, list_attachments)
+            msgs.append(msg)
+
+        return msgs
 
     @staticmethod
     def attach_file(msg, filepath):
@@ -51,20 +60,12 @@ class Mail:
         file.add_header('Content-Disposition', 'attachment', filename=filename)  # Добавляем заголовки
         msg.attach(file)  # Присоединяем файл к сообщению
 
-    def create_messages(self, from_, list_to, subject, content_, list_attachments):
-        msgs = []
-        for to in list_to:
-            msg = MIMEMultipart()
-            msg['Subject'] = subject
-            msg['To'] = to
-            msg['From'] = from_
+class PutMessages:
+    def __init__(self):
+        self.count_sends = 0
+        self.count_errors = 0
 
-            self.create_message_body(self, msg, content_, list_attachments)
-            msgs.append(msg)
-
-        return msgs
-
-    def put_messages(self, msgs_):
+    def put(self, msgs_):
         smtp_server = c.SMTP_SERVER
         port = c.PORT
         some = c.G
@@ -77,15 +78,16 @@ class Mail:
                 s.login(login, password)
             except SMTPAuthenticationError:
                 logger.error('Не удалось соединиться с сервером\n'
-                      'Проверьте правильность логина и пароля.')
+                             'Проверьте правильность логина и пароля.')
                 exit(1)
 
             for msg in msgs_:
                 try:
                     s.send_message(msg)
-                    self.count_mails += 1
+                    self.count_sends += 1
                 except Exception:
                     self.count_errors += 1
+            logger.info(f'Отправлено {self.count_sends} писем')
             if self.count_errors != 0:
                 logger.error(f'Не удалось отправить {self.count_errors} писем')
-            logger.info(f'Отправлено {self.count_mails} писем')
+
